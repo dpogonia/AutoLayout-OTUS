@@ -31,6 +31,11 @@ class ViewController: UIViewController {
     private var portraitConstraints: [NSLayoutConstraint] = []
     private var landscapeConstraints: [NSLayoutConstraint] = []
     
+    // Layout guides для равноудалённости в landscape и позиционирования image в portrait
+    private let spacingGuide1 = UILayoutGuide()
+    private let spacingGuide2 = UILayoutGuide()
+    private let imagePositionGuide = UILayoutGuide()
+    
     // ЛЕЙБЛЫ
     private func makeLabel() -> UILabel {
         let label = UILabel()
@@ -93,6 +98,10 @@ class ViewController: UIViewController {
         view.addSubview(labelOne)
         view.addSubview(labelTwo)
         view.addSubview(image)
+        // Добавляем layout guides
+        view.addLayoutGuide(spacingGuide1)
+        view.addLayoutGuide(spacingGuide2)
+        view.addLayoutGuide(imagePositionGuide)
     }
     
     
@@ -100,8 +109,10 @@ class ViewController: UIViewController {
     private func setupConstraints() {
         
         // Портрет
+        // centerY должен быть на 1/10 выше центра, то есть на position = 0.5 - 0.1 = 0.4 от верха
+        
         portraitConstraints = [
-            // Два label с равными отступами от краёв и равной шириной
+            // Два label с равными отступами от краёв (без equal width для работы hugging priorities)
             labelOne.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 30),
             labelTwo.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -30),
             labelTwo.leadingAnchor.constraint(equalTo: labelOne.trailingAnchor, constant: 50),
@@ -109,21 +120,28 @@ class ViewController: UIViewController {
             labelOne.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             labelTwo.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             
-            labelOne.widthAnchor.constraint(equalTo: labelTwo.widthAnchor),
-            
-            // Image по центру и на 1/10 экрана выше центра
+            // Image по центру горизонтально
             image.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             image.widthAnchor.constraint(equalToConstant: 40),
-            image.heightAnchor.constraint(equalToConstant: 40),
-            image.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -(view.bounds.height / 10)) // одна десятая от высоты вью контроллера
+            image.heightAnchor.constraint(equalToConstant: 40)
         ]
         
-        // мягкое ограничение: не более чем на 10 pt выше labelOne - не удалось внести в основной массив, работает только через .append, иначе конфликтует с image.centerYAnchor.constraint
-        let maxOffsetConstraint: NSLayoutConstraint = image.topAnchor.constraint(
-            lessThanOrEqualTo: labelOne.bottomAnchor,
-            constant: -10
-        )
-        maxOffsetConstraint.priority = .defaultHigh
+        // Основное позиционирование: на 1/10 экрана выше центра (динамически пересчитывается)
+        portraitConstraints.append(contentsOf: [
+            imagePositionGuide.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            imagePositionGuide.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            imagePositionGuide.topAnchor.constraint(equalTo: view.topAnchor),
+            NSLayoutConstraint(item: imagePositionGuide, attribute: .height, relatedBy: .equal, toItem: view, attribute: .height, multiplier: 0.4, constant: 0)
+        ])
+        // Основной constraint: ставит image на 1/10 экрана выше центра (желаемое позиционирование)
+        let imageCenterYConstraint = image.centerYAnchor.constraint(equalTo: imagePositionGuide.bottomAnchor)
+        imageCenterYConstraint.priority = .init(999) // Высокий приоритет, но ниже ограничения
+        portraitConstraints.append(imageCenterYConstraint)
+        
+        // Ограничение: не более чем на 10 pt от labelOne снизу (максимальный приоритет)
+        
+        let maxOffsetConstraint = image.bottomAnchor.constraint(greaterThanOrEqualTo: labelOne.topAnchor, constant: -10)
+        maxOffsetConstraint.priority = .required // Максимальный приоритет для ограничения
         portraitConstraints.append(maxOffsetConstraint)
         
         // LANDSCAPE: три view горизонтально, равноудалённо, по 20 pt от краёв
@@ -141,12 +159,14 @@ class ViewController: UIViewController {
             image.widthAnchor.constraint(equalToConstant: 40),
             image.heightAnchor.constraint(equalToConstant: 40),
             
-            // Равные промежутки между элементами
-            image.leadingAnchor.constraint(equalTo: labelOne.trailingAnchor),
-            labelTwo.leadingAnchor.constraint(equalTo: image.trailingAnchor),
-            
-            // Равная ширина лейблов
-            labelOne.widthAnchor.constraint(equalTo: labelTwo.widthAnchor)
+            // Первый spacing guide между labelOne и image
+            spacingGuide1.leadingAnchor.constraint(equalTo: labelOne.trailingAnchor),
+            spacingGuide1.trailingAnchor.constraint(equalTo: image.leadingAnchor),
+            // Второй spacing guide между image и labelTwo
+            spacingGuide2.leadingAnchor.constraint(equalTo: image.trailingAnchor),
+            spacingGuide2.trailingAnchor.constraint(equalTo: labelTwo.leadingAnchor),
+            // Равная ширина spacing guides для равноудалённости
+            spacingGuide1.widthAnchor.constraint(equalTo: spacingGuide2.widthAnchor)
         ]
     }
     
@@ -167,7 +187,6 @@ class ViewController: UIViewController {
     
     
 }
-
 
 
 // MARK: - Код до задания про поворот:
